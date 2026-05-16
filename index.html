@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan Mensual de Gastos</title>
+    <!-- Configuración PWA e Icono del Monumento Bancario -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='%2364748b'><text y='75' font-size='70' x='15'>🏦</text></svg>">
+    
+    <style>
+        :root {
+            --bg-color: #0d1520;
+            --card-bg-dark: #16222f;
+            --text-main: #ffffff;
+            --text-muted: #8fa0b5;
+            
+            /* Colores exactos de las tarjetas de la imagen */
+            --panel-green: #006853;
+            --panel-green-light: #00a884;
+            --panel-gray: #2c3540;
+            --panel-orange: #e05300;
+            --panel-orange-light: #ff7a33;
+            
+            --btn-blue: #233549;
+            --btn-blue-active: #314b68;
+            --border-color: #243447;
+            --success-color: #00cc99;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 24px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Botón de instalación superior */
+        #pwa-install-btn {
+            display: none;
+            background-color: #007acc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 1100px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        /* Cabecera idéntica a la imagen */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+            max-width: 1100px;
+            margin-bottom: 24px;
+        }
+
+        .app-icon-header {
+            font-size: 38px;
+            background-color: #233549;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .app-header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        /* Contenedor Principal en Grid (3 Columnas como en la imagen) */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1.2fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 1100px;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Estilo base de los paneles grandes */
+        .panel {
+            border-radius: 18px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+        }
+
+        /* COLUMNA 1: EQUILIBRIO GLOBAL (VERDE) */
+        .panel-equilibrium {
+            background-color: var(--panel-green);
+        }
+
+        /* Gráfico circular de progreso */
+        .chart-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin: 10px auto 30px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .svg-chart {
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }
+
+        .chart-bg {
+            fill: none;
+            stroke: rgba(255,255,255,0.1);
+            stroke-width: 14;
+        }
+
+        .chart-progress {
+            fill: none;
+            stroke: var(--panel-green-light);
+            stroke-width: 14;
+            stroke-linecap: round;
+            stroke-dasharray: 440;
+            stroke-dashoffset: 110;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+
+        .chart-legends {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+            position: absolute;
+            top: 45px;
+            left: 35px;
+            text-align: left;
+        }
+        
+        .legend-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background-color: #fff;
+        }
+
+        .panel-amount-display {
+            font-size: 32px;
+            font-weight: 700;
+            margin-top: auto;
+            letter-spacing: -0.5px;
+        }
+
+        /* COLUMNA 2: NECESIDADES BÁSICAS (GRIS) */
+        .panel-basics {
+            background-color: var(--panel-gray);
+        }
+
+        .basics-budget-indicator {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .basics-progress-bar-container {
+            background-color: rgba(0,0,0,0.3);
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .basics-progress-fill {
+            background-color: var(--success-color);
+            height: 100%;
+            width: 45%;
+            border-radius: 6px;
+        }
+
+        /* Lista de elementos con checkbox */
+        .checklist-group {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .checklist-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 0;
+        }
+
+        .checklist-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        /* Checkbox cuadrado de la izquierda */
+        .check-box-square {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #5a697c;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .checklist-label {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        /* Check circular verde de la derecha */
+        .check-circle-status {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background-color: #1c2733;
+            border: 2px solid #3d4f66;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: transparent;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .check-circle-status.active {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+            color: #0d1520;
+        }
+
+        /* COLUMNA 3: DINERO VARIABLE (NARANJA) */
+        .panel-variable {
+            background-color: var(--panel-orange);
+        }
+
+        /* Gráfico de barras de la imagen */
+        .bars-chart-mock {
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            height: 100px;
+            margin-bottom: 20px;
+            border-left: 2px solid rgba(255,255,255,0.2);
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+            padding: 0 10px 4px 10px;
+            position: relative;
+        }
+
+        .bar-y-label {
+            position: absolute;
+            left: -25px;
+            font-size: 10px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .bar {
+            flex: 1;
+            border-radius: 4px 4px 0 0;
+            animation: growUp 0.6s ease;
+        }
+
+        .bar-style-vida {
+            background-color: var(--panel-green-light);
+            height: 80%;
+        }
+
+        .bar-ahorro {
+            background-color: var(--panel-orange-light);
+            height: 55%;
+        }
+
+        .bars-labels {
+            display: flex;
+            justify-content: space-around;
+            font-size: 11px;
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 20px;
+        }
+
+        .variable-summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+
+        .v-box-title {
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 4px;
+        }
+
+        .v-box-value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        /* Sección Gastos Recientes */
+        .recent-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            padding-top: 14px;
+        }
+
+        .recent-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 110px;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+
+        .recent-item {
+            display: flex;
+            justify-content: space-between;
+            color: rgba(255,255,255,0.9);
+        }
+
+        /* SECCIÓN INFERIOR DE BOTONES (Formulario y Copias de seguridad) */
+        .bottom-controls-container {
+            width: 100%;
+            max-width: 1100px;
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1.3fr 0.7fr 2fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .bottom-controls-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Bloque Añadir Gasto */
+        .action-card-input {
+            background-color: var(--card-bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .action-card-input h3 {
+            font-size: 20px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .input-fields-row {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+        }
+
+        input {
+            background-color: #0d1520;
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            width: 100%;
+            outline: none;
+        }
+
+        .plus-btn-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background-color: #233549;
+            border: 2px solid var(--border-color);
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .plus-btn-circle:active {
+            background-color: var(--btn-blue-active);
+        }
+
+        /* Bloque central de menú (Historial / Ajustes) */
+        .menu-buttons-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-menu-rect {
+            background-color: var(--btn-blue);
+            color: white;
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Bloques inferiores de Importar/Exportar con sus iconos de carpetas */
+        .backup-row-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .btn-backup-huge {
+            background-color: var(--btn-blue);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .icon-folder { font-size: 22px; color: #ffcc00; }
+        .icon-download { font-size: 22px; color: #00cc99; }
+
+        @keyframes growUp {
+            from { height: 0; }
+            to { height: var(--h); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Instalador Dinámico PWA -->
+    <button id="pwa-install-btn">📱 Añadir a Pantalla de Inicio</button>
+
+    <!-- Cabecera de la Aplicación -->
+    <header class="app-header">
+        <div class="app-icon-header">🏦</div>
+        <h1>Plan Mensual de Gastos</h1>
+    </header>
+
+    <!-- PANEL PRINCIPAL DE 3 COLUMNAS (IDÉNTICO A LA IMAGEN) -->
+    <main class="dashboard-grid">
+        
+        <!-- COLUMNA 1: EQUILIBRIO GLOBAL -->
+        <section class="panel panel-equilibrium">
+            <div class="panel-title">Equilibrio Global</div>
+            
+            <div class="chart-container">
+                <svg class="svg-chart" viewBox="0 0 160 160">
+                    <circle class="chart-bg" cx="80" cy="80" r="70"></circle>
+                    <circle id="global-circle-progress" class="chart-progress" cx="80" cy="80" r="70"></circle>
+                </svg>
+                <div class="chart-legends">
+                    <div><span class="legend-dot" style="background-color: #fff;"></span>Ingreso Total</div>
+                    <div><span class="legend-dot" style="background-color: var(--panel-green-light);"></span>Gastos Fijos</div>
+                    <div><span class="legend-dot" style="background-color: var(--success-color);"></span>Disponible</div>
+                </div>
+            </div>
+
+            <div class="v-box-title" style="color: rgba(255,255,255,0.8);">Monto Disponible Real</div>
+            <div class="panel-amount-display" id="display-global-balance">$0.00</div>
+        </section>
+
+        <!-- COLUMNA 2: NECESIDADES BÁSICAS -->
+        <section class="panel panel-basics">
+            <div class="panel-title">Necesidades Básicas (50%)</div>
+            
+            <div class="basics-budget-indicator" id="basics-ratio-text">Cargando...</div>
+            <div class="basics-progress-bar-container">
+                <div class="basics-progress-fill" id="basics-bar-fill"></div>
+            </div>
+
+            <div class="checklist-group" id="basics-checklist-container">
+                <!-- Se inyecta dinámicamente -->
+            </div>
+        </section>
+
+        <!-- COLUMNA 3: DINERO VARIABLE -->
+        <section class="panel panel-variable">
+            <div class="panel-title">Dinero Variable (30%)</div>
+            
+            <!-- Gráfico de barras visual -->
+            <div class="bars-chart-mock">
+                <div class="bar-y-label" style="top: 10px;">600</div>
+                <div class="bar-y-label" style="top: 50px;">200</div>
+                <div class="bar-y-label" style="bottom: 0;">0</div>
+                <div class="bar bar-style-vida"></div>
+                <div class="bar bar-ahorro"></div>
+            </div>
+            <div class="bars-labels">
+                <span>Estilo de Vida</span>
+                <span>Ahorro (20%)</span>
+            </div>
+
+            <!-- Resúmenes numéricos -->
+            <div class="variable-summary-row">
+                <div>
+                    <div class="v-box-title">Gasto Restante</div>
+                    <div class="v-box-value" id="display-variable-left">$0.00</div>
+                </div>
+                <div>
+                    <div class="v-box-title">Ahorro Resguardado</div>
+                    <div class="v-box-value" style="color: var(--success-color);" id="display-saving-value">$0.00</div>
+                </div>
+            </div>
+
+            <div class="recent-section-title">Gastos Recientes</div>
+            <div class="recent-list" id="recent-expenses-log">
+                <!-- Historial en tiempo real -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MANDOS Y BOTONES INFERIORES (IDÉNTICOS A LA IMAGEN) -->
+    <div class="bottom-controls-container">
+        
+        <!-- Formulario interactivo Añadir Gasto -->
+        <form class="action-card-input" id="add-expense-form">
+            <h3>AÑADIR GASTO</h3>
+            <div class="input-fields-row">
+                <input type="number" id="form-amount" placeholder="Importe ($)" step="0.01" required inputmode="decimal">
+                <input type="text" id="form-desc" placeholder="Concepto" required>
+            </div>
+            <button type="submit" class="plus-btn-circle">+</button>
+        </form>
+
+        <!-- Pila de botones central -->
+        <div class="menu-buttons-stack">
+            <button class="btn-menu-rect" onclick="alert('Historial completo guardado de forma segura en tu dispositivo.')">Historial</button>
+            <button class="btn-menu-rect" onclick="configurarPresupuesto()">Ajustes</button>
+        </div>
+
+        <!-- Botones gigantes de Importar y Exportar -->
+        <div class="backup-row-grid">
+            <button class="btn-backup-huge" onclick="importarDatos()">
+                <span>IMPORTAR DATOS</span>
+                <span class="icon-folder">📁</span>
+            </button>
+            <button class="btn-backup-huge" onclick="exportarDatos()">
+                <span>EXPORTAR DATOS</span>
+                <span class="icon-download">📥</span>
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- VALORES INICIALES CONFIGURABLES ---
+        let CONFIG = {
+            presupuestoBase: 3276.08, // Ajustado para dar los balances aproximados de la imagen
+            porcentajeFijo: 0.50,
+            porcentajeVariable: 0.30
+        };
+
+        const GASTOS_FIJOS = [
+            { id: 'alquiler', nombre: 'Alquiler/Hipot.', coste: 600 },
+            { id: 'suministros', nombre: 'Suministros', coste: 240 },
+            { id: 'despensa', nombre: 'Despensa', coste: 300 },
+            { id: 'suscripciones', nombre: 'Suscrip. Esenc.', coste: 60 }
+        ];
+
+        let state = {
+            fijosPagados: ['alquiler', 'suministros', 'despensa'], // Marcados por defecto para asemejar la imagen
+            variables: [
+                { desc: 'Estilo de Vida', importe: 130 },
+                { desc: 'Suministros', importe: 20 },
+                { desc: 'Suscrip. Esenc.', importe: 20 },
+                { desc: 'Despensa', importe: 30 }
+            ]
+        };
+
+        function cargarPersistencia() {
+            const guardado = localStorage.getItem('pwa_plan_exact_data');
+            if (guardado) {
+                try { state = JSON.parse(guardado); } catch(e) {}
+            }
+            calcularYRenderizar();
+        }
+
+        function guardarYRenderizar() {
+            localStorage.setItem('pwa_plan_exact_data', JSON.stringify(state));
+            calcularYRenderizar();
+        }
+
+        function calcularYRenderizar() {
+            const maxFijo = CONFIG.presupuestoBase * CONFIG.porcentajeFijo;
+            const maxVariable = CONFIG.presupuestoBase * CONFIG.porcentajeVariable;
+            const maxAhorro = CONFIG.presupuestoBase * (1 - CONFIG.porcentajeFijo - CONFIG.porcentajeVariable);
+
+            // 1. Renderizar Necesidades Básicas (Columna Central)
+            const checklistContainer = document.getElementById('basics-checklist-container');
+            checklistContainer.innerHTML = '';
+            let fijosAcumulados = 0;
+            let fijosPendientesCobro = 0;
+
+            GASTOS_FIJOS.forEach(g => {
+                fijosAcumulados += g.coste;
+                const pagado = state.fijosPagados.includes(g.id);
+                if (!pagado) fijosPendientesCobro += g.coste;
+
+                const row = document.createElement('div');
+                row.className = 'checklist-row';
+                row.innerHTML = `
+                    <div class="checklist-left">
+                        <div class="check-box-square" style="background-color: ${pagado ? '#3d4f66':'transparent'}" onclick="toggleFijo('${g.id}')"></div>
+                        <span class="checklist-label">${g.nombre}</span>
+                    </div>
+                    <div class="check-circle-status ${pagado ? 'active' : ''}" onclick="toggleFijo('${g.id}')">✓</div>
+                `;
+                checklistContainer.appendChild(row);
+            });
+
+            document.getElementById('basics-ratio-text').innerText = `Gastos Fijos Actuales: $${fijosAcumulados.toFixed(0)} / $${maxFijo.toFixed(0)}`;
+            const pctFijoBar = (fijosAcumulados / maxFijo) * 100;
+            document.getElementById('basics-bar-fill').style.width = `${Math.min(pctFijoBar, 100)}%`;
+
+            // 2. Calcular Bolsa Variable (Columna Derecha)
+            let totalVariableGastado = 0;
+            const logContainer = document.getElementById('recent-expenses-log');
+            logContainer.innerHTML = '';
+
+            state.variables.forEach(v => {
+                totalVariableGastado += v.importe;
+                const item = document.createElement('div');
+                item.className = 'recent-item';
+                item.innerHTML = `
+                    <span>${v.desc}</span>
+                    <span style="font-weight:700;">-$${v.importe.toFixed(2)}</span>
+                `;
+                logContainer.appendChild(item);
+            });
+
+            const variableRestante = maxVariable - totalVariableGastado;
+            document.getElementById('display-variable-left').innerText = `$${variableRestante.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('display-saving-value').innerText = `$${maxAhorro.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+            // 3. Balance de la primera columna (Disponible Real)
+            const disponibleGlobal = fijosPendientesCobro + variableRestante;
+            document.getElementById('display-global-balance').innerText = `$${disponibleGlobal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+            // Actualizar círculo de progreso animado
+            const circulo = document.getElementById('global-circle-progress');
+            const totalPresupuestado = maxFijo + maxVariable;
+            const pctGlobal = disponibleGlobal / totalPresupuestado;
+            const strokeOffset = 440 - (440 * (isNaN(pctGlobal) ? 1 : pctGlobal));
+            circulo.style.strokeDashoffset = strokeOffset;
+        }
+
+        window.toggleFijo = function(id) {
+            const idx = state.fijosPagados.indexOf(id);
+            if (idx > -1) state.fijosPagados.splice(idx, 1);
+            else state.fijosPagados.push(id);
+            guardarYRenderizar();
+        };
+
+        document.getElementById('add-expense-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const amtIn = document.getElementById('form-amount');
+            const descIn = document.getElementById('form-desc');
+            const valor = parseFloat(amtIn.value);
+            const texto = descIn.value.trim();
+
+            if (!isNaN(valor) && texto) {
+                state.variables.unshift({ desc: texto, importe: valor });
+                amtIn.value = '';
+                descIn.value = '';
+                guardarYRenderizar();
+            }
+        });
+
+        window.configurarPresupuesto = function() {
+            const nuevo = prompt("Introduce tu presupuesto mensual total objetivo:", CONFIG.presupuestoBase);
+            if (nuevo && !isNaN(parseFloat(nuevo))) {
+                CONFIG.presupuestoBase = parseFloat(nuevo);
+                calcularYRenderizar();
+            }
+        };
+
+        // --- BACKUPS ---
+        window.exportarDatos = function() {
+            const blob = new Blob([JSON.stringify(state)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "plan_mensual_gastos_backup.json";
+            a.click();
+        };
+
+        window.importarDatos = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = ev => {
+                const file = ev.target.files[0];
+                const reader = new FileReader();
+                reader.readAsText(file, 'UTF-8');
+                reader.onload = e => {
+                    try {
+                        const parsed = JSON.parse(e.target.result);
+                        if (parsed.fijosPagados && parsed.variables) {
+                            state = parsed;
+                            guardarYRenderizar();
+                        }
+                    } catch(err) { alert("Archivo inválido."); }
+                }
+            };
+            input.click();
+        };
+
+        // --- INSTALACIÓN AUTOMÁTICA PWA ---
+        let deferPrompt;
+        window.addEventListener('beforeinstallprompt', e => {
+            e.preventDefault(); deferPrompt = e;
+            document.getElementById('pwa-install-btn').style.display = 'block';
+        });
+        document.getElementById('pwa-install-btn').addEventListener('click', () => {
+            if (deferPrompt) {
+                deferPrompt.prompt();
+                deferPrompt.userChoice.then(res => {
+                    if (res.outcome === 'accepted') document.getElementById('pwa-install-btn').style.display = 'none';
+                });
+            }
+        });
+
+        // Inicialización
+        window.addEventListener('DOMContentLoaded', cargarPersistencia);
+
+        // Registro de Service Worker embebido en Blob para offline instantáneo
+        if ('serviceWorker' in navigator) {
+            const code = `
+                self.addEventListener('install', e => e.waitUntil(caches.open('v2').then(c => c.addAll(['/', '/index.html']))));
+                self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
+            `;
+            const b = new Blob([code], {type: 'application/javascript'});
+            navigator.serviceWorker.register(URL.createObjectURL(b)).catch(() => {});
+        }
+    </script>
+</body>
+</html>
